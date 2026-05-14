@@ -63,7 +63,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: Padding(
+      /*body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
@@ -138,11 +138,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),*/
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Colors.blueAccent, Colors.blue],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('SegurIA', style: TextStyle(color: Colors.white70)),
+                  SizedBox(height: 10),
+                  Text(
+                    'Gestión de Seguros',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.3,
+                children: [
+                  _menuItem(
+                    context,
+                    Icons.calculate_outlined,
+                    'Cotizar',
+                    '/cotizar',
+                    Colors.blue,
+                  ),
+                  _menuItem(
+                    context,
+                    Icons.shield_outlined,
+                    'Mis Pólizas',
+                    '/polizas',
+                    Colors.green,
+                  ),
+                  _menuItem(
+                    context,
+                    Icons.folder_outlined,
+                    'Documentos KYC',
+                    null,
+                    Colors.orange,
+                    onTap: () => _irDocumentos(context),
+                  ),
+                  _menuItem(
+                    context,
+                    Icons.autorenew,
+                    'Renovaciones',
+                    '/renovaciones',
+                    Colors.purple,
+                  ),
+                  _menuItem(
+                    context,
+                    Icons.medical_services_outlined,
+                    'Orden médica',
+                    '/orden-medica',
+                    Colors.teal,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _card(String title, String value) {
+  /*Widget _card(String title, String value) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(15),
@@ -213,6 +292,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }*/
+  Widget _menuItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String? route,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap:
+          onTap ??
+          (route != null ? () => Navigator.pushNamed(context, route) : null),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _irDocumentos(BuildContext context) {
+    // Para el cliente, primero buscamos su cotización aceptada más reciente
+    // y navegamos con ese ID. Por ahora abrimos un diálogo de selección.
+    // En una implementación completa, consultarías el servicio de cotizaciones
+    // y tomarías el ID de la primera cotización ACEPTADA.
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Documentos KYC'),
+        content: const Text(
+          'Ve a "Mis Pólizas", selecciona la cotización aceptada '
+          'y desde allí podrás subir tus documentos de identidad.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Entendido'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/polizas');
+            },
+            child: const Text('Ir a mis pólizas'),
           ),
         ],
       ),
