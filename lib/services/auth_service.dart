@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AuthService {
-  final String baseUrl = "https://backend-seguros-de-vida-production.up.railway.app/api";
+  final String baseUrl =
+      "https://backendseguros-production.up.railway.app/api";
 
   String? accessToken;
   String? refreshToken;
+  String? tenantSlug;
 
   // 🔐 LOGIN REAL
   Future<bool> login(String email, String password) async {
@@ -14,10 +16,7 @@ class AuthService {
     final response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "email": email,
-        "password": password,
-      }),
+      body: jsonEncode({"email": email, "password": password}),
     );
 
     if (response.statusCode == 200) {
@@ -25,6 +24,7 @@ class AuthService {
 
       accessToken = data["access"];
       refreshToken = data["refresh"];
+      tenantSlug = data['usuario']['tenant_slug'];
 
       return true;
     } else {
@@ -43,9 +43,7 @@ class AuthService {
         "Content-Type": "application/json",
         "Authorization": "Bearer $accessToken",
       },
-      body: jsonEncode({
-        "refresh": refreshToken,
-      }),
+      body: jsonEncode({"refresh": refreshToken}),
     );
 
     accessToken = null;
@@ -59,9 +57,7 @@ class AuthService {
     final response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "refresh": refreshToken,
-      }),
+      body: jsonEncode({"refresh": refreshToken}),
     );
 
     if (response.statusCode == 200) {
@@ -79,11 +75,17 @@ class AuthService {
     final response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "email": email,
-      }),
+      body: jsonEncode({"email": email}),
     );
 
     return response.statusCode == 200;
   }
+
+  Map<String, String> get authHeaders => {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $accessToken',
+    // Cambia 'tu-agencia-slug' por el slug real del tenant, idealmente
+    // guardado tras el login. Por ahora es un placeholder.
+    'X-Tenant-Slug': tenantSlug ?? '',
+  };
 }

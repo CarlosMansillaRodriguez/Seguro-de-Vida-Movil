@@ -38,13 +38,10 @@ class DashboardScreen extends StatelessWidget {
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "Seguro de Vida",
-                    style: TextStyle(color: Colors.white70),
-                  ),
+                  Text('SegurIA', style: TextStyle(color: Colors.white70)),
                   SizedBox(height: 10),
                   Text(
-                    "Activo",
+                    'Gestión de Seguros',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -55,14 +52,47 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            Row(
-              children: [
-                _card("Cobertura", "\$50,000"),
-                const SizedBox(width: 10),
-                _card("Estado", "Activo"),
-              ],
+            // Accesos rápidos
+            Expanded(
+              child: GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.3,
+                children: [
+                  _menuItem(
+                    context,
+                    Icons.calculate_outlined,
+                    'Cotizar',
+                    '/cotizar',
+                    Colors.blue,
+                  ),
+                  _menuItem(
+                    context,
+                    Icons.shield_outlined,
+                    'Mis Pólizas',
+                    '/polizas',
+                    Colors.green,
+                  ),
+                  _menuItem(
+                    context,
+                    Icons.folder_outlined,
+                    'Documentos',
+                    null,
+                    Colors.orange,
+                    onTap: () => _irDocumentos(context),
+                  ),
+                  _menuItem(
+                    context,
+                    Icons.autorenew,
+                    'Renovaciones',
+                    '/renovaciones',
+                    Colors.purple,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -85,6 +115,64 @@ class DashboardScreen extends StatelessWidget {
             Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _menuItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String? route,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap:
+          onTap ??
+          (route != null ? () => Navigator.pushNamed(context, route) : null),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _irDocumentos(BuildContext context) {
+    // Aquí necesitas el cotizacion_id. En producción lo obtienes de
+    // la cotización aceptada del usuario. Por ahora muestra un diálogo.
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Documentos KYC'),
+        content: const Text(
+          'Selecciona una cotización aceptada para subir sus documentos.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
       ),
     );
   }
