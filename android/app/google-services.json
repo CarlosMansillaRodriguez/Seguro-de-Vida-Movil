@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "316167110013",
+    "project_id": "seguroia",
+    "storage_bucket": "seguroia.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:316167110013:android:e121aae0375041ff6f6014",
+        "android_client_info": {
+          "package_name": "com.example.seguro_de_vida"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCzPPQAn8EZDzDs02WjuL4BvFjhpVWfADw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

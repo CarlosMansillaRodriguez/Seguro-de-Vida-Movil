@@ -1,8 +1,50 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import '../../services/notification_service.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _setupNotificationNavigation();
+  }
+
+  void _setupNotificationNavigation() async {
+    final svc = NotificationService();
+
+    // App estaba cerrada y se abrió por notificación
+    final initial = await svc.getInitialMessage();
+    if (initial != null && mounted) {
+      _navigateFromMessage(initial);
+    }
+
+    // App estaba en background y el usuario tocó la notificación
+    svc.onMessageOpenedApp.listen((message) {
+      if (mounted) _navigateFromMessage(message);
+    });
+  }
+
+  void _navigateFromMessage(RemoteMessage message) {
+    final tipo = message.data['tipo'] as String?;
+    switch (tipo) {
+      case 'poliza':
+        Navigator.pushNamed(context, '/polizas');
+        break;
+      case 'renovacion':
+        Navigator.pushNamed(context, '/renovaciones');
+        break;
+      default:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
