@@ -105,6 +105,7 @@ class AuthService {
   String? accessToken;
   String? refreshToken;
   String? tenantSlug;
+  String? userRol;
 
   bool get isAuthenticated => accessToken != null;
 
@@ -124,6 +125,7 @@ class AuthService {
       accessToken  = data["access"];
       refreshToken = data["refresh"];
       tenantSlug   = data["usuario"]?["tenant_slug"];
+      userRol = data["usuario"]?["rol"];
 
       return true;
     } else {

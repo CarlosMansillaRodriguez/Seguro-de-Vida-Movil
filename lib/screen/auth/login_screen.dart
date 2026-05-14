@@ -20,7 +20,15 @@ class _LoginScreenState extends State<LoginScreen> {
   );
 
   if (success) {
-    Navigator.pushReplacementNamed(context, '/dashboard');
+    // El rol viene en el token JWT, lo guardamos en AuthService
+    final rol = auth.userRol ?? '';
+    if (rol == 'Administrador' || rol == 'AdminAgencia') {
+      Navigator.pushReplacementNamed(context, '/admin');
+    } else if (rol == 'Agente') {
+      Navigator.pushReplacementNamed(context, '/agente');
+    } else {
+      Navigator.pushReplacementNamed(context, '/dashboard');
+    }
   } else {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Credenciales inválidas')),

@@ -9,6 +9,15 @@ import '../screen/poliza/polizas_screen.dart';
 import '../screen/poliza/emitir_poliza_screen.dart';
 import '../screen/documentos/documentos_screen.dart';
 import '../screen/renovacion/renovacion_screen.dart';
+//Agregado
+import '../screen/agente/agente_dashboard_screen.dart';
+import '../screen/agente/cotizaciones_pendientes_screen.dart';
+import '../screen/agente/renovaciones_agente_screen.dart';
+import '../screen/admin/admin_dashboard_screen.dart';
+import '../screen/admin/gestionar_agentes_screen.dart';
+import '../screen/admin/gestionar_clientes_screen.dart';
+import '../screen/admin/reportes_screen.dart';
+import '../screen/admin/bitacora_screen.dart';
 
 class AppRoutes {
   static final routes = <String, WidgetBuilder>{
@@ -20,6 +29,15 @@ class AppRoutes {
     '/polizas': (context) => const PolizasScreen(),
     '/polizas/emitir': (context) => const EmitirPolizaScreen(),
     '/renovaciones': (context) => const RenovacionScreen(),
+    //Agregado
+    '/agente': (context) => const AgenteDashboardScreen(),
+    '/agente/cotizaciones': (context) => const CotizacionesPendientesScreen(),
+    '/agente/renovaciones': (context) => const RenovacionesAgenteScreen(),
+    '/admin': (context) => const AdminDashboardScreen(),
+    '/admin/agentes': (context) => const GestionarAgentesScreen(),
+    '/admin/clientes': (context) => const GestionarClientesScreen(),
+    '/admin/reportes': (context) => const ReportesScreen(),
+    '/admin/bitacora': (context) => const BitacoraScreen(),
   };
 
   /// Para rutas con parámetros usa Navigator.push directo:
