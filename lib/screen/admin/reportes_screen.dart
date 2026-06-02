@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import '../../services/auth_service.dart';
@@ -1136,4 +1136,528 @@ class _ReportesScreenState extends State<ReportesScreen>
       ),
     ),
   );
+}*/
+import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import '../../services/auth_service.dart';
+import '../../services/admin_service.dart';
+
+class ReportesScreen extends StatefulWidget {
+  const ReportesScreen({super.key});
+
+  @override
+  State<ReportesScreen> createState() => _ReportesScreenState();
+}
+
+class _ReportesScreenState extends State<ReportesScreen> {
+  final _svc = AdminService(AuthService());
+  final _vozCtrl = TextEditingController();
+  final _speech = SpeechToText();
+
+  bool _speechDisponible = false;
+  bool _escuchando = false;
+  String _modeloSeleccionado = 'polizas_de_seguro.poliza';
+  bool _cargando = false;
+  bool _cargandoVoz = false;
+  List<dynamic> _datos = [];
+  String? _urlGenerada;
+  int _total = 0;
+
+  final List<Map<String, String>> _modelos = [
+    {'key': 'polizas_de_seguro.poliza', 'label': 'Pólizas'},
+    {'key': 'cotizaciones.cotizacion', 'label': 'Cotizaciones'},
+    {'key': 'usuarios.usuario', 'label': 'Usuarios'},
+    {'key': 'ordenes_medicas.ordenmedica', 'label': 'Órdenes Médicas'},
+    {'key': 'planes_de_seguro.plandeseguro', 'label': 'Planes de Seguro'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _inicializarSpeech();
+  }
+
+  @override
+  void dispose() {
+    _vozCtrl.dispose();
+    _speech.stop();
+    super.dispose();
+  }
+
+  Future<void> _inicializarSpeech() async {
+    final disponible = await _speech.initialize(
+      onError: (error) {
+        setState(() => _escuchando = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error de micrófono: ${error.errorMsg}')),
+          );
+        }
+      },
+      onStatus: (status) {
+        // Cuando el micrófono para automaticamente
+        if (status == 'done' || status == 'notListening') {
+          setState(() => _escuchando = false);
+        }
+      },
+    );
+    setState(() => _speechDisponible = disponible);
+  }
+
+  Future<void> _toggleEscuchar() async {
+    if (_escuchando) {
+      await _speech.stop();
+      setState(() => _escuchando = false);
+      return;
+    }
+
+    if (!_speechDisponible) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'El reconocimiento de voz no está disponible en este dispositivo',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _escuchando = true;
+      _vozCtrl.clear();
+    });
+
+    await _speech.listen(
+      onResult: (result) {
+        setState(() {
+          _vozCtrl.text = result.recognizedWords;
+        });
+        // Si el resultado es final, procesamos automáticamente
+        if (result.finalResult && result.recognizedWords.isNotEmpty) {
+          setState(() => _escuchando = false);
+          _reportePorVoz();
+        }
+      },
+      listenFor: const Duration(seconds: 15),
+      pauseFor: const Duration(seconds: 3),
+      localeId: 'es_ES',
+      cancelOnError: true,
+      partialResults: true,
+    );
+  }
+
+  Future<void> _reportePorVoz() async {
+    final texto = _vozCtrl.text.trim();
+    if (texto.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Escribe o di un comando primero')),
+      );
+      return;
+    }
+
+    setState(() {
+      _cargandoVoz = true;
+      _urlGenerada = null;
+      _datos = [];
+    });
+
+    try {
+      final res = await _svc.reportePorVoz(texto);
+      final url = res['url_generada'] as String?;
+
+      setState(() {
+        _urlGenerada = url;
+        _cargandoVoz = false;
+      });
+
+      if (url != null) {
+        final params = Uri.parse('http://x$url').queryParameters;
+        final modelo = params['modelo'] ?? _modeloSeleccionado;
+        final filtros = Map<String, String>.from(params)..remove('modelo');
+
+        final data = await _svc.obtenerReporte(
+          modelo: modelo,
+          filtros: filtros,
+        );
+
+        setState(() {
+          _datos = data['data'] ?? [];
+          _total = data['total'] ?? 0;
+          _modeloSeleccionado = modelo;
+        });
+      }
+    } catch (e) {
+      setState(() => _cargandoVoz = false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _generarReporte() async {
+    setState(() {
+      _cargando = true;
+      _datos = [];
+    });
+    try {
+      final res = await _svc.obtenerReporte(modelo: _modeloSeleccionado);
+      setState(() {
+        _datos = res['data'] ?? [];
+        _total = res['total'] ?? 0;
+        _cargando = false;
+      });
+    } catch (e) {
+      setState(() => _cargando = false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Reportes Dinámicos')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _seccionVoz(),
+            const SizedBox(height: 20),
+            _seccionManual(),
+            if (_datos.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _seccionResultados(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Sección de reporte por voz ──────────────────────────
+  Widget _seccionVoz() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.deepPurple[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.deepPurple[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.mic, color: Colors.deepPurple, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Reporte por comando de voz',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurple,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Habla o escribe: "pólizas activas", "cotizaciones pendientes"...',
+            style: TextStyle(fontSize: 12, color: Colors.deepPurple[300]),
+          ),
+          const SizedBox(height: 14),
+
+          // Campo de texto + botón micrófono
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _vozCtrl,
+                  decoration: InputDecoration(
+                    hintText: _escuchando
+                        ? 'Escuchando...'
+                        : 'Escribe o usa el micrófono',
+                    border: const OutlineInputBorder(),
+                    filled: _escuchando,
+                    fillColor: _escuchando
+                        ? Colors.deepPurple[50]
+                        : Colors.white,
+                  ),
+                  maxLines: 2,
+                  onSubmitted: (_) => _reportePorVoz(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Botón micrófono
+              GestureDetector(
+                onTap: _toggleEscuchar,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: _escuchando ? Colors.red : Colors.deepPurple,
+                    shape: BoxShape.circle,
+                    boxShadow: _escuchando
+                        ? [
+                            BoxShadow(
+                              color: Colors.red.withOpacity(0.4),
+                              blurRadius: 12,
+                              spreadRadius: 2,
+                            ),
+                          ]
+                        : [],
+                  ),
+                  child: Icon(
+                    _escuchando ? Icons.stop : Icons.mic,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Indicador de escucha activa
+          if (_escuchando) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const SizedBox(width: 4),
+                _ondaAnimada(),
+                const SizedBox(width: 10),
+                const Text(
+                  'Escuchando... habla ahora',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 12),
+
+          // Botón enviar
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: (_cargandoVoz || _escuchando) ? null : _reportePorVoz,
+              icon: _cargandoVoz
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.send),
+              label: Text(
+                _cargandoVoz ? 'Procesando con IA...' : 'Generar reporte',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+
+          // URL generada por la IA
+          if (_urlGenerada != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.deepPurple[100]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Consulta generada por IA:',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _urlGenerada!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.deepPurple,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Animación de onda mientras escucha
+  Widget _ondaAnimada() {
+    return Row(
+      children: List.generate(4, (i) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 4, end: 16),
+          duration: Duration(milliseconds: 300 + (i * 100)),
+          curve: Curves.easeInOut,
+          builder: (_, h, __) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            width: 4,
+            height: h,
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          onEnd: () => setState(() {}),
+        );
+      }),
+    );
+  }
+
+  // ── Sección de reporte manual ───────────────────────────
+  Widget _seccionManual() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Reporte manual',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String>(
+          value: _modeloSeleccionado,
+          decoration: const InputDecoration(
+            labelText: 'Selecciona el módulo',
+            border: OutlineInputBorder(),
+          ),
+          items: _modelos
+              .map(
+                (m) =>
+                    DropdownMenuItem(value: m['key'], child: Text(m['label']!)),
+              )
+              .toList(),
+          onChanged: (v) => setState(() => _modeloSeleccionado = v!),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _cargando ? null : _generarReporte,
+            icon: _cargando
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.bar_chart),
+            label: Text(_cargando ? 'Cargando...' : 'Generar reporte'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Sección de resultados ───────────────────────────────
+  Widget _seccionResultados() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Resultados ($_total registros)',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            TextButton.icon(
+              onPressed: () => setState(() {
+                _datos = [];
+                _total = 0;
+                _urlGenerada = null;
+              }),
+              icon: const Icon(Icons.close, size: 16),
+              label: const Text('Limpiar'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ..._datos.take(50).map((item) => _tarjetaDato(item)).toList(),
+        if (_total > 50)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Mostrando 50 de $_total registros',
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _tarjetaDato(dynamic item) {
+    if (item is! Map) return const SizedBox();
+    final entries = item.entries.take(5).toList();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: entries
+              .map(
+                (e) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${e.key}: ',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${e.value}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
 }

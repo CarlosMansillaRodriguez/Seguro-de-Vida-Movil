@@ -463,4 +463,18 @@ class AdminService {
     }
     throw Exception('Error al listar bitácora');
   }
+
+  Future<Map<String, dynamic>> obtenerReporte({
+  required String modelo,
+  String export = 'json',
+  Map<String, String> filtros = const {},
+}) async {
+  final params = {'modelo': modelo, 'export': export, ...filtros};
+  final uri = Uri.parse('$base/reportes/').replace(queryParameters: params);
+  final headers = Map<String, String>.from(auth.authHeaders)
+    ..remove('Content-Type');
+  final res = await http.get(uri, headers: headers);
+  if (res.statusCode == 200) return jsonDecode(res.body);
+  throw Exception('Error al obtener reporte: ${res.statusCode}');
+}
 }
