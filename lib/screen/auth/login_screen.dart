@@ -14,27 +14,29 @@ class _LoginScreenState extends State<LoginScreen> {
   final auth = AuthService();
 
   void login() async {
-  bool success = await auth.login(
-    emailController.text,
-    passwordController.text,
-  );
-
-  if (success) {
-    // El rol viene en el token JWT, lo guardamos en AuthService
-    final rol = auth.userRol ?? '';
-    if (rol == 'Administrador' || rol == 'AdminAgencia') {
-      Navigator.pushReplacementNamed(context, '/admin');
-    } else if (rol == 'Agente') {
-      Navigator.pushReplacementNamed(context, '/agente');
-    } else {
-      Navigator.pushReplacementNamed(context, '/dashboard');
-    }
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Credenciales inválidas')),
+    bool success = await auth.login(
+      emailController.text,
+      passwordController.text,
     );
+
+    if (success) {
+      if (auth.esSistema) {
+        Navigator.pushReplacementNamed(context, '/sistema');
+      } else if (auth.esTenant) {
+        Navigator.pushReplacementNamed(context, '/admin');
+      } else if (auth.esAdmin) {
+        Navigator.pushReplacementNamed(context, '/admin');
+      } else if (auth.esAgente) {
+        Navigator.pushReplacementNamed(context, '/agente');
+      } else {
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      }
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Credenciales inválidas')));
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -49,10 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const Text(
                 "Bienvenido 👋",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 10),
@@ -76,9 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 controller: passwordController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  hintText: "Contraseña",
-                ),
+                decoration: const InputDecoration(hintText: "Contraseña"),
               ),
 
               const SizedBox(height: 10),
@@ -86,8 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, '/forgot'),
+                  onPressed: () => Navigator.pushNamed(context, '/forgot'),
                   child: const Text("¿Olvidaste tu contraseña?"),
                 ),
               ),
