@@ -66,27 +66,34 @@ class AgenteDashboardScreen extends StatelessWidget {
                     Icons.assignment_outlined,
                     'Cotizaciones',
                     Colors.blue,
-                    () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => const CotizacionesPendientesScreen(),
-                    )),
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CotizacionesPendientesScreen(),
+                      ),
+                    ),
                   ),
                   _menuItem(
                     context,
                     Icons.shield_outlined,
                     'Pólizas',
                     Colors.green,
-                    () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => const PolizasScreen(),
-                    )),
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PolizasScreen()),
+                    ),
                   ),
                   _menuItem(
                     context,
                     Icons.autorenew,
                     'Renovaciones',
                     Colors.purple,
-                    () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => const RenovacionesAgenteScreen(),
-                    )),
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RenovacionesAgenteScreen(),
+                      ),
+                    ),
                   ),
                   _menuItem(
                     context,
@@ -94,6 +101,21 @@ class AgenteDashboardScreen extends StatelessWidget {
                     'Mis Clientes',
                     Colors.orange,
                     () => _verClientes(context),
+                  ),
+                  _menuItem(
+                    context,
+                    Icons.warning_amber_outlined,
+                    'Siniestros',
+                    Colors.orange,
+                    () => Navigator.pushNamed(context, '/agente/siniestros'),
+                  ),
+                  _menuItem(
+                    context,
+                    Icons.account_balance_wallet_outlined,
+                    'Indemnizaciones',
+                    Colors.teal,
+                    () =>
+                        Navigator.pushNamed(context, '/agente/indemnizaciones'),
                   ),
                 ],
               ),
@@ -104,8 +126,13 @@ class AgenteDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _menuItem(BuildContext context, IconData icon, String label,
-      Color color, VoidCallback onTap) {
+  Widget _menuItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -121,9 +148,13 @@ class AgenteDashboardScreen extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 32),
             const SizedBox(height: 8),
-            Text(label,
-                style: TextStyle(
-                    fontWeight: FontWeight.w600, color: Colors.grey[800])),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+            ),
           ],
         ),
       ),

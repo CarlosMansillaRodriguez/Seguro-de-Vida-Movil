@@ -69,7 +69,7 @@ class _HistorialPagosScreenState extends State<HistorialPagosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final puedeRegistrarManual = _auth.esAgente || _auth.esAdmin || _auth.esTenant;
+    final puedeRegistrarManual = _auth.esAgente || _auth.esAdmin;
 
     return Scaffold(
       appBar: AppBar(
