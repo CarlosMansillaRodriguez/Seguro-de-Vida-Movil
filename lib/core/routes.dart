@@ -65,6 +65,7 @@ import '../screen/sistema/tenants_lista_screen.dart';
 import '../screen/pago/historial_pagos_screen.dart';
 import '../screen/siniestro/siniestros_screen.dart';
 import '../screen/siniestro/indemnizaciones_screen.dart';
+import '../screen/documentos/mis_documentos_screen.dart';
 
 class AppRoutes {
   static final routes = <String, WidgetBuilder>{
@@ -81,6 +82,7 @@ class AppRoutes {
     '/orden-medica': (context) => const OrdenMedicaScreen(),
     '/pagos': (context) => const HistorialPagosScreen(),
     '/siniestros': (context) => const SiniestrosScreen(),
+    '/mis-documentos': (context) => const MisDocumentosScreen(),
 
     // ── Agente ────────────────────────────────────────────────────────────
     '/agente': (context) => const AgenteDashboardScreen(),

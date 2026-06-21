@@ -284,6 +284,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   _menuItem(
                     context,
+                    Icons.folder_shared_outlined,
+                    'Mis Documentos',
+                    '/mis-documentos',
+                    Colors.deepPurple,
+                  ),
+                  _menuItem(
+                    context,
                     Icons.autorenew,
                     'Renovaciones',
                     '/renovaciones',

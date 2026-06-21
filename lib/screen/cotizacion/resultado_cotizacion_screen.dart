@@ -603,7 +603,7 @@ class ResultadoCotizacionScreen extends StatelessWidget {
   }
 
   // El cliente acepta → el agente podrá verla y revisarla
-  Widget _botonAceptar(BuildContext context) {
+  /*Widget _botonAceptar(BuildContext context) {
     return Column(
       children: [
         Container(
@@ -660,6 +660,49 @@ class ResultadoCotizacionScreen extends StatelessWidget {
         SnackBar(content: Text('Error: $e')),
       );
     }
+  }*/
+  Widget _botonAceptar(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.blue[200]!),
+          ),
+          child: const Text(
+            'Tu cotización quedará pendiente de revisión. Sube tus documentos '
+            'de identidad (KYC) ahora; un agente la aprobará o rechazará luego.',
+            style: TextStyle(color: Colors.blue, fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: () => _continuar(context),
+            child: const Text('Aceptar Cotizacion y subir documentos',
+                style: TextStyle(fontSize: 16)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _continuar(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DocumentosKycEmisionScreen(
+          cotizacionId: resultado.cotizacionId,
+          requiereOrdenMedica: false,
+        ),
+      ),
+    );
   }
 
   Widget _tarjeta(
