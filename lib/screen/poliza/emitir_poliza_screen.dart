@@ -247,6 +247,8 @@ import '../../services/cotizacion_service.dart';
 import '../../models/poliza_model.dart';
 import '../beneficiario/beneficiarios_form_screen.dart';
 import '../pago/pagar_poliza_screen.dart';
+import '../../services/documento_service.dart';
+import '../../services/orden_medica_service.dart';
 
 class EmitirPolizaScreen extends StatefulWidget {
   const EmitirPolizaScreen({super.key});
@@ -261,6 +263,10 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
   late final CotizacionService _cotSvc;
   late final PolizaService _polSvc;
   late TabController _tabs;
+  /*--------------------------*/
+  final _docSvc = DocumentoService(AuthService());
+  final _ordSvc = OrdenMedicaService(AuthService());
+  /*---------------------------*/
 
   // ── Tab 1: Emitir ────────────────────────────────────────────────────────
   List<Map<String, dynamic>> _cotizaciones = [];
@@ -312,8 +318,9 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
     } catch (e) {
       setState(() => _loadingCot = false);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -324,8 +331,7 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
       final all = await _polSvc.listarPolizas();
       setState(() {
         // Solo pólizas ACTIVAS del cliente logueado
-        _polizasActivas =
-            all.where((p) => p.estado == 'ACTIVA').toList();
+        _polizasActivas = all.where((p) => p.estado == 'ACTIVA').toList();
         _loadingPol = false;
       });
     } catch (_) {
@@ -336,8 +342,7 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
   Future<void> _agregarBeneficiario() async {
     final result = await Navigator.push<BeneficiarioModel>(
       context,
-      MaterialPageRoute(
-          builder: (_) => const BeneficiariosFormScreen()),
+      MaterialPageRoute(builder: (_) => const BeneficiariosFormScreen()),
     );
     if (result != null) setState(() => _beneficiarios.add(result));
   }
@@ -358,7 +363,7 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
   double get _totalPorcentaje =>
       _beneficiarios.fold(0.0, (s, b) => s + b.porcentajeAsignado);
 
-  Future<void> _emitir() async {
+  /*Future<void> _emitir() async {
     if (_cotizacionSeleccionada == null) {
       _snack('Selecciona una cotización');
       return;
@@ -392,10 +397,104 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
     } finally {
       if (mounted) setState(() => _emitiendo = false);
     }
+  }*/
+  Future<void> _emitir() async {
+    if (_cotizacionSeleccionada == null) {
+      _snack('Selecciona una cotización');
+      return;
+    }
+
+    if (_beneficiarios.isEmpty) {
+      _snack('Agrega al menos un beneficiario');
+      return;
+    }
+
+    if ((_totalPorcentaje - 100).abs() > 0.01) {
+      _snack(
+        'Los porcentajes deben sumar 100%. Actual: ${_totalPorcentaje.toStringAsFixed(0)}%',
+      );
+      return;
+    }
+
+    final cotizacionId = _cotizacionSeleccionada!['id'] as int;
+
+    setState(() => _emitiendo = true);
+
+    try {
+      // ==========================
+      // Validar expediente KYC
+      // ==========================
+      final expediente = await _docSvc.obtenerExpedientePorCotizacion(
+        cotizacionId,
+      );
+
+      if (expediente == null) {
+        _snack('La cotización no tiene expediente KYC.');
+        return;
+      }
+
+      if (!expediente.validadoPorAnalista) {
+        _snack('El expediente KYC aún no fue validado por un analista.');
+        return;
+      }
+
+      // ==========================
+      // Validar orden médica
+      // SOLO si existe
+      // ==========================
+      final orden = await _ordSvc.obtenerOrdenPorCotizacion(cotizacionId);
+
+      if (orden != null) {
+        /*if (orden.dictamen == null) {
+        _snack(
+          'La orden médica existe pero todavía no tiene dictamen.',
+        );
+        return;
+      }
+
+      if (orden.dictamen!.conclusion == 'NO_APTO') {
+        _snack(
+          'El dictamen médico es NO APTO. No puede emitirse la póliza.',
+        );
+        return;
+      }*/
+        if (orden.dictamen == null) {
+          _snack('La orden médica aún está pendiente de evaluación médica.');
+          return;
+        }
+
+        if (orden.dictamen!.conclusion.toUpperCase() == 'NO_APTO') {
+          _snack(
+            'Dictamen médico: ${orden.dictamen!.conclusionDisplay}. No es posible emitir la póliza.',
+          );
+          return;
+        }
+      }
+
+      final poliza = await _polSvc.emitirPoliza(
+        cotizacionId: cotizacionId,
+        beneficiarios: _beneficiarios,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => PagarPolizaScreen(poliza: poliza)),
+      );
+    } catch (e) {
+      if (mounted) {
+        _snack('Error: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _emitiendo = false);
+      }
+    }
   }
 
-  void _snack(String msg) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(msg)));
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
   @override
   Widget build(BuildContext context) {
@@ -444,8 +543,9 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
                   Text(
                     '⏳ Sin cotizaciones listas para emitir',
                     style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange),
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
                   ),
                   SizedBox(height: 6),
                   Text(
@@ -474,8 +574,7 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
                   child: Text('COT-$id — $plan — \$$capital'),
                 );
               }).toList(),
-              onChanged: (v) =>
-                  setState(() => _cotizacionSeleccionada = v),
+              onChanged: (v) => setState(() => _cotizacionSeleccionada = v),
             ),
 
           if (_cotizacionSeleccionada != null) ...[
@@ -499,14 +598,16 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
           if (_beneficiarios.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Sin beneficiarios aún.',
-                  style: TextStyle(color: Colors.grey)),
+              child: Text(
+                'Sin beneficiarios aún.',
+                style: TextStyle(color: Colors.grey),
+              ),
             )
           else ...[
             const SizedBox(height: 8),
             ..._beneficiarios.asMap().entries.map(
-                  (e) => _tarjetaBeneficiario(e.key, e.value),
-                ),
+              (e) => _tarjetaBeneficiario(e.key, e.value),
+            ),
             const SizedBox(height: 8),
             _totalBar(),
           ],
@@ -519,10 +620,11 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
               child: ElevatedButton(
                 onPressed: _emitiendo ? null : _emitir,
                 child: _emitiendo
-                    ? const CircularProgressIndicator(
-                        color: Colors.white)
-                    : const Text('Emitir póliza',
-                        style: TextStyle(fontSize: 16)),
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        'Emitir póliza',
+                        style: TextStyle(fontSize: 16),
+                      ),
               ),
             ),
           const SizedBox(height: 20),
@@ -540,37 +642,41 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
         color: kycValidado ? Colors.green[50] : Colors.blue[50],
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-            color:
-                kycValidado ? Colors.green[200]! : Colors.blue[200]!),
+          color: kycValidado ? Colors.green[200]! : Colors.blue[200]!,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(
-              kycValidado ? Icons.check_circle : Icons.info_outline,
-              color: kycValidado ? Colors.green : Colors.blue,
-              size: 16,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              kycValidado
-                  ? 'Documentos KYC validados ✓'
-                  : 'Documentos KYC pendientes de validación',
-              style: TextStyle(
+          Row(
+            children: [
+              Icon(
+                kycValidado ? Icons.check_circle : Icons.info_outline,
+                color: kycValidado ? Colors.green : Colors.blue,
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                kycValidado
+                    ? 'Documentos KYC validados ✓'
+                    : 'Documentos KYC pendientes de validación',
+                style: TextStyle(
                   color: kycValidado ? Colors.green : Colors.blue,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600),
-            ),
-          ]),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           Text(
             'Capital: \$${c['capital_asegurado'] ?? '-'} · '
             'Frecuencia: ${c['frecuencia_pago'] ?? '-'} · '
             'Plazo: ${c['plazo_anios'] ?? '-'} años',
             style: TextStyle(
-                fontSize: 12,
-                color: kycValidado ? Colors.green[800] : Colors.blue[800]),
+              fontSize: 12,
+              color: kycValidado ? Colors.green[800] : Colors.blue[800],
+            ),
           ),
         ],
       ),
@@ -589,8 +695,10 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
           children: [
             Icon(Icons.shield_outlined, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            const Text('No tienes pólizas activas aún',
-                style: TextStyle(color: Colors.grey)),
+            const Text(
+              'No tienes pólizas activas aún',
+              style: TextStyle(color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             const Text(
               'Emite tu primera póliza desde la pestaña "Emitir nueva"',
@@ -620,76 +728,101 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(p.numeroPoliza,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  p.numeroPoliza,
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 15)),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.green.withOpacity(0.4)),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
                 ),
-                child: const Text('ACTIVA',
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.green.withOpacity(0.4)),
+                  ),
+                  child: const Text(
+                    'ACTIVA',
                     style: TextStyle(
-                        color: Colors.green,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ]),
+                      color: Colors.green,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 10),
-            _fila(Icons.calendar_today, 'Vigencia',
-                '${p.fechaInicioVigencia} → ${p.fechaVencimiento}'),
+            _fila(
+              Icons.calendar_today,
+              'Vigencia',
+              '${p.fechaInicioVigencia} → ${p.fechaVencimiento}',
+            ),
             const SizedBox(height: 4),
-            _fila(Icons.attach_money, 'Prima',
-                '\$${p.primaFinalFacturada.toStringAsFixed(2)}'),
+            _fila(
+              Icons.attach_money,
+              'Prima',
+              '\$${p.primaFinalFacturada.toStringAsFixed(2)}',
+            ),
             const SizedBox(height: 4),
-            _fila(Icons.people, 'Beneficiarios',
-                '${p.beneficiarios.length} registrado(s)'),
+            _fila(
+              Icons.people,
+              'Beneficiarios',
+              '${p.beneficiarios.length} registrado(s)',
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _fila(IconData icon, String label, String valor) =>
-      Row(children: [
-        Icon(icon, size: 16, color: Colors.grey),
-        const SizedBox(width: 6),
-        Text('$label: ',
-            style: const TextStyle(color: Colors.grey, fontSize: 13)),
-        Expanded(child: Text(valor, style: const TextStyle(fontSize: 13))),
-      ]);
+  Widget _fila(IconData icon, String label, String valor) => Row(
+    children: [
+      Icon(icon, size: 16, color: Colors.grey),
+      const SizedBox(width: 6),
+      Text(
+        '$label: ',
+        style: const TextStyle(color: Colors.grey, fontSize: 13),
+      ),
+      Expanded(child: Text(valor, style: const TextStyle(fontSize: 13))),
+    ],
+  );
 
   Widget _tarjetaBeneficiario(int idx, BeneficiarioModel b) => Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: const Icon(Icons.person),
-          title: Text(b.nombreCompleto),
-          subtitle: Text(
-              '${b.parentesco} — ${b.porcentajeAsignado.toStringAsFixed(0)}%'
-              '${b.tutorLegal != null ? ' · tutor: ${b.tutorLegal!.nombreCompleto}' : ''}'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Botón EDITAR
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                tooltip: 'Editar',
-                onPressed: () => _editarBeneficiario(idx),
-              ),
-              // Botón ELIMINAR
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                tooltip: 'Eliminar',
-                onPressed: () => setState(() => _beneficiarios.removeAt(idx)),
-              ),
-            ],
+    margin: const EdgeInsets.only(bottom: 8),
+    child: ListTile(
+      leading: const Icon(Icons.person),
+      title: Text(b.nombreCompleto),
+      subtitle: Text(
+        '${b.parentesco} — ${b.porcentajeAsignado.toStringAsFixed(0)}%'
+        '${b.tutorLegal != null ? ' · tutor: ${b.tutorLegal!.nombreCompleto}' : ''}',
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Botón EDITAR
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+            tooltip: 'Editar',
+            onPressed: () => _editarBeneficiario(idx),
           ),
-        ),
-      );
+          // Botón ELIMINAR
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+            tooltip: 'Eliminar',
+            onPressed: () => setState(() => _beneficiarios.removeAt(idx)),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _totalBar() {
     final total = _totalPorcentaje;
@@ -700,23 +833,30 @@ class _EmitirPolizaScreenState extends State<EmitirPolizaScreen>
         color: ok ? Colors.green[50] : Colors.orange[50],
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-            color: ok ? Colors.green[200]! : Colors.orange[200]!),
+          color: ok ? Colors.green[200]! : Colors.orange[200]!,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('Total asignado:',
-              style:
-                  TextStyle(color: ok ? Colors.green : Colors.orange)),
-          Text('${total.toStringAsFixed(0)}%',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: ok ? Colors.green : Colors.orange)),
+          Text(
+            'Total asignado:',
+            style: TextStyle(color: ok ? Colors.green : Colors.orange),
+          ),
+          Text(
+            '${total.toStringAsFixed(0)}%',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: ok ? Colors.green : Colors.orange,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _seccion(String t) => Text(t,
-      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15));
+  Widget _seccion(String t) => Text(
+    t,
+    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+  );
 }

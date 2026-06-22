@@ -583,23 +583,33 @@ class _DocumentosKycEmisionScreenState
 
   Future<void> _cargarExpediente() async {
     try {
-      final exp = await _svc
-          .obtenerExpedientePorCotizacion(widget.cotizacionId);
+      final exp = await _svc.obtenerExpedientePorCotizacion(
+        widget.cotizacionId,
+      );
       setState(() {
         _expediente = exp;
         if (exp != null) {
           // Solo cargamos las URLs si realmente existen y no están vacías
           _anversoUrl = (exp.ciAnversoUrl.isNotEmpty) ? exp.ciAnversoUrl : null;
           _reversoUrl = (exp.ciReversoUrl.isNotEmpty) ? exp.ciReversoUrl : null;
-          _domicilioUrl = (exp.domicilioUrl.isNotEmpty) ? exp.domicilioUrl : null;
-          _saludUrl = (exp.saludFirmadaUrl?.isNotEmpty == true) ? exp.saludFirmadaUrl : null;
-          _ingresosUrl = (exp.respaldoIngresosUrl?.isNotEmpty == true) ? exp.respaldoIngresosUrl : null;
+          _domicilioUrl = (exp.domicilioUrl.isNotEmpty)
+              ? exp.domicilioUrl
+              : null;
+          _saludUrl = (exp.saludFirmadaUrl?.isNotEmpty == true)
+              ? exp.saludFirmadaUrl
+              : null;
+          _ingresosUrl = (exp.respaldoIngresosUrl?.isNotEmpty == true)
+              ? exp.respaldoIngresosUrl
+              : null;
         }
         _loading = false;
       });
     } catch (_) {
       setState(() => _loading = false);
     }
+    print('Validado: ${_expediente?.validadoPorAnalista}');
+    print('Observaciones: ${_expediente?.observacionesAnalista}');
+    print('URLs: anverso=$_anversoUrl, reverso=$_reversoUrl, domicilio=$_domicilioUrl, salud=$_saludUrl, ingresos=$_ingresosUrl');
   }
 
   /// Solo bloqueamos edición de un campo si el expediente fue validado
@@ -609,11 +619,9 @@ class _DocumentosKycEmisionScreenState
     return urlActual != null && urlActual.isNotEmpty;
   }
 
-  Future<String?> _seleccionarYSubir(
-      String nombre, ImageSource source) async {
+  Future<String?> _seleccionarYSubir(String nombre, ImageSource source) async {
     final picker = ImagePicker();
-    final picked =
-        await picker.pickImage(source: source, imageQuality: 85);
+    final picked = await picker.pickImage(source: source, imageQuality: 85);
     if (picked == null) return null;
 
     setState(() => _guardando = true);
@@ -628,9 +636,9 @@ class _DocumentosKycEmisionScreenState
       return response.secureUrl;
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al subir $nombre: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al subir $nombre: $e')));
       }
       return null;
     } finally {
@@ -639,12 +647,14 @@ class _DocumentosKycEmisionScreenState
   }
 
   Future<void> _capturarDocumento(
-      String nombre, Function(String url) onSubido) async {
+    String nombre,
+    Function(String url) onSubido,
+  ) async {
     await showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.vertical(top: Radius.circular(16))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -654,13 +664,15 @@ class _DocumentosKycEmisionScreenState
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2)),
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             const SizedBox(height: 16),
-            Text(nombre,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 15)),
+            Text(
+              nombre,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
             const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.camera_alt),
@@ -668,7 +680,9 @@ class _DocumentosKycEmisionScreenState
               onTap: () async {
                 Navigator.pop(context);
                 final url = await _seleccionarYSubir(
-                    nombre, ImageSource.camera);
+                  nombre,
+                  ImageSource.camera,
+                );
                 if (url != null) onSubido(url);
               },
             ),
@@ -678,7 +692,9 @@ class _DocumentosKycEmisionScreenState
               onTap: () async {
                 Navigator.pop(context);
                 final url = await _seleccionarYSubir(
-                    nombre, ImageSource.gallery);
+                  nombre,
+                  ImageSource.gallery,
+                );
                 if (url != null) onSubido(url);
               },
             ),
@@ -690,13 +706,11 @@ class _DocumentosKycEmisionScreenState
   }
 
   Future<void> _guardar() async {
-    if (_anversoUrl == null ||
-        _reversoUrl == null ||
-        _domicilioUrl == null) {
+    if (_anversoUrl == null || _reversoUrl == null || _domicilioUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text(
-                'Los 3 documentos obligatorios deben estar subidos')),
+          content: Text('Los 3 documentos obligatorios deben estar subidos'),
+        ),
       );
       return;
     }
@@ -704,26 +718,24 @@ class _DocumentosKycEmisionScreenState
     setState(() => _guardando = true);
     try {
       if (_expediente == null) {
-        _expediente = await _svc.crearExpediente(ExpedienteModel(
-          cotizacionId: widget.cotizacionId,
-          ciAnversoUrl: _anversoUrl!,
-          ciReversoUrl: _reversoUrl!,
-          domicilioUrl: _domicilioUrl!,
-          saludFirmadaUrl: _saludUrl,
-          respaldoIngresosUrl: _ingresosUrl,
-        ));
-      } else {
-        _expediente = await _svc.actualizarExpediente(
-          _expediente!.id!,
-          {
-            'ci_anverso_url': _anversoUrl!,
-            'ci_reverso_url': _reversoUrl!,
-            'domicilio_url': _domicilioUrl!,
-            if (_saludUrl != null) 'salud_firmada_url': _saludUrl,
-            if (_ingresosUrl != null)
-              'respaldo_ingresos_url': _ingresosUrl,
-          },
+        _expediente = await _svc.crearExpediente(
+          ExpedienteModel(
+            cotizacionId: widget.cotizacionId,
+            ciAnversoUrl: _anversoUrl!,
+            ciReversoUrl: _reversoUrl!,
+            domicilioUrl: _domicilioUrl!,
+            saludFirmadaUrl: _saludUrl,
+            respaldoIngresosUrl: _ingresosUrl,
+          ),
         );
+      } else {
+        _expediente = await _svc.actualizarExpediente(_expediente!.id!, {
+          'ci_anverso_url': _anversoUrl!,
+          'ci_reverso_url': _reversoUrl!,
+          'domicilio_url': _domicilioUrl!,
+          if (_saludUrl != null) 'salud_firmada_url': _saludUrl,
+          if (_ingresosUrl != null) 'respaldo_ingresos_url': _ingresosUrl,
+        });
       }
 
       if (!mounted) return;
@@ -737,12 +749,12 @@ class _DocumentosKycEmisionScreenState
           content: Text(
             widget.requiereOrdenMedica
                 ? 'Tus documentos fueron enviados.\n\n'
-                    'Adicionalmente, tu capital asegurado requiere una orden médica. '
-                    'Deberás subir los resultados de los exámenes indicados.\n\n'
-                    'Un agente revisará todo antes de emitir tu póliza.'
+                      'Adicionalmente, tu capital asegurado requiere una orden médica. '
+                      'Deberás subir los resultados de los exámenes indicados.\n\n'
+                      'Un agente revisará todo antes de emitir tu póliza.'
                 : 'Tus documentos fueron enviados correctamente.\n\n'
-                    'Un agente los revisará y aprobará o rechazará tu solicitud. '
-                    'Te notificaremos el resultado.',
+                      'Un agente los revisará y aprobará o rechazará tu solicitud. '
+                      'Te notificaremos el resultado.',
           ),
           actions: [
             TextButton(
@@ -756,21 +768,23 @@ class _DocumentosKycEmisionScreenState
                     ),
                   );
                 } else {
-                  Navigator.of(context)
-                      .popUntil((r) => r.isFirst);
+                  Navigator.of(context).popUntil((r) => r.isFirst);
                 }
               },
-              child: Text(widget.requiereOrdenMedica
-                  ? 'Ver mi orden médica'
-                  : 'Ir al inicio'),
+              child: Text(
+                widget.requiereOrdenMedica
+                    ? 'Ver mi orden médica'
+                    : 'Ir al inicio',
+              ),
             ),
           ],
         ),
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _guardando = false);
@@ -806,15 +820,19 @@ class _DocumentosKycEmisionScreenState
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.medical_services_outlined,
-                              color: Colors.orange),
+                          Icon(
+                            Icons.medical_services_outlined,
+                            color: Colors.orange,
+                          ),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Tu capital asegurado requiere examen médico. '
                               'Después de subir estos documentos podrás ver tu orden médica.',
                               style: TextStyle(
-                                  color: Colors.orange, fontSize: 13),
+                                color: Colors.orange,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],
@@ -841,8 +859,10 @@ class _DocumentosKycEmisionScreenState
                     urlSubida: _anversoUrl,
                     obligatorio: true,
                     bloqueado: _campoBloqueado(_anversoUrl),
-                    onTap: () => _capturarDocumento('CI Anverso',
-                        (url) => setState(() => _anversoUrl = url)),
+                    onTap: () => _capturarDocumento(
+                      'CI Anverso',
+                      (url) => setState(() => _anversoUrl = url),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   _itemDocumento(
@@ -851,8 +871,10 @@ class _DocumentosKycEmisionScreenState
                     urlSubida: _reversoUrl,
                     obligatorio: true,
                     bloqueado: _campoBloqueado(_reversoUrl),
-                    onTap: () => _capturarDocumento('CI Reverso',
-                        (url) => setState(() => _reversoUrl = url)),
+                    onTap: () => _capturarDocumento(
+                      'CI Reverso',
+                      (url) => setState(() => _reversoUrl = url),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   _itemDocumento(
@@ -862,9 +884,9 @@ class _DocumentosKycEmisionScreenState
                     obligatorio: true,
                     bloqueado: _campoBloqueado(_domicilioUrl),
                     onTap: () => _capturarDocumento(
-                        'Comprobante de domicilio',
-                        (url) =>
-                            setState(() => _domicilioUrl = url)),
+                      'Comprobante de domicilio',
+                      (url) => setState(() => _domicilioUrl = url),
+                    ),
                   ),
 
                   const SizedBox(height: 20),
@@ -878,8 +900,9 @@ class _DocumentosKycEmisionScreenState
                     // Los opcionales NUNCA se bloquean aunque estén validados
                     bloqueado: false,
                     onTap: () => _capturarDocumento(
-                        'Declaración de salud',
-                        (url) => setState(() => _saludUrl = url)),
+                      'Declaración de salud',
+                      (url) => setState(() => _saludUrl = url),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   _itemDocumento(
@@ -889,8 +912,9 @@ class _DocumentosKycEmisionScreenState
                     obligatorio: false,
                     bloqueado: false,
                     onTap: () => _capturarDocumento(
-                        'Respaldo de ingresos',
-                        (url) => setState(() => _ingresosUrl = url)),
+                      'Respaldo de ingresos',
+                      (url) => setState(() => _ingresosUrl = url),
+                    ),
                   ),
 
                   const SizedBox(height: 32),
@@ -908,22 +932,24 @@ class _DocumentosKycEmisionScreenState
                         onPressed: _guardando ? null : _guardar,
                         child: _guardando
                             ? const Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.center,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child:
-                                          CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white)),
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                   SizedBox(width: 12),
                                   Text('Subiendo documentos...'),
                                 ],
                               )
-                            : const Text('Enviar documentos',
-                                style: TextStyle(fontSize: 16)),
+                            : const Text(
+                                'Enviar documentos',
+                                style: TextStyle(fontSize: 16),
+                              ),
                       ),
                     )
                   else
@@ -949,7 +975,9 @@ class _DocumentosKycEmisionScreenState
                           height: 44,
                           child: OutlinedButton(
                             onPressed: _guardando ? null : _guardar,
-                            child: const Text('Actualizar documentos de todas formas'),
+                            child: const Text(
+                              'Actualizar documentos de todas formas',
+                            ),
                           ),
                         ),
                       ],
@@ -986,63 +1014,71 @@ class _DocumentosKycEmisionScreenState
                 : Colors.grey.withOpacity(0.3),
           ),
         ),
-        child: Row(children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: subido
-                  ? Colors.green.withOpacity(0.12)
-                  : Colors.grey.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: subido
+                    ? Colors.green.withOpacity(0.12)
+                    : Colors.grey.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                subido ? Icons.check_circle : icono,
+                color: subido ? Colors.green : Colors.grey[600],
+                size: 24,
+              ),
             ),
-            child: Icon(
-              subido ? Icons.check_circle : icono,
-              color: subido ? Colors.green : Colors.grey[600],
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Text(label,
-                      style: const TextStyle(
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 14)),
-                  if (obligatorio)
-                    const Text(' *',
-                        style: TextStyle(
-                            color: Colors.red, fontSize: 14)),
-                ]),
-                const SizedBox(height: 2),
-                Text(
-                  subido
-                      ? 'Subido ✓ — toca para reemplazar'
-                      : bloqueado
-                          ? 'Validado — no se puede cambiar'
-                          : 'Toca para subir',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: subido
-                        ? Colors.green[700]
-                        : bloqueado
-                            ? Colors.grey
-                            : Colors.grey[500],
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (obligatorio)
+                        const Text(
+                          ' *',
+                          style: TextStyle(color: Colors.red, fontSize: 14),
+                        ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    subido
+                        ? 'Subido ✓ — toca para reemplazar'
+                        : bloqueado
+                        ? 'Validado — no se puede cambiar'
+                        : 'Toca para subir',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: subido
+                          ? Colors.green[700]
+                          : bloqueado
+                          ? Colors.grey
+                          : Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          if (!bloqueado)
-            Icon(
-              subido ? Icons.edit_outlined : Icons.upload_outlined,
-              color: Colors.grey[400],
-              size: 20,
-            ),
-        ]),
+            if (!bloqueado)
+              Icon(
+                subido ? Icons.edit_outlined : Icons.upload_outlined,
+                color: Colors.grey[400],
+                size: 20,
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1050,65 +1086,73 @@ class _DocumentosKycEmisionScreenState
   Widget _bannerEstado(ExpedienteModel exp) {
     if (exp.validadoPorAnalista) {
       return _banner(
-          '✓ Documentos validados por el analista',
-          'El agente revisó y aprobó tus documentos. Puedes actualizar los opcionales si lo necesitas.',
-          Colors.green);
+        '✓ Documentos validados por el analista',
+        'El agente revisó y aprobó tus documentos. Puedes actualizar los opcionales si lo necesitas.',
+        Colors.green,
+      );
     }
     if (exp.observacionesAnalista != null &&
         exp.observacionesAnalista!.isNotEmpty) {
       return _banner(
-          '⚠ Documentos rechazados',
-          'Motivo: ${exp.observacionesAnalista}\nSube nuevamente los documentos corregidos.',
-          Colors.orange);
+        '⚠ Documentos rechazados',
+        'Motivo: ${exp.observacionesAnalista}\nSube nuevamente los documentos corregidos.',
+        Colors.orange,
+      );
     }
-    return _banner('⏳ Pendiente de revisión',
-        'El agente revisará tus documentos en breve.', Colors.blue);
+    return _banner(
+      '⏳ Pendiente de revisión',
+      'El agente revisará tus documentos en breve.',
+      Colors.blue,
+    );
   }
 
-  Widget _banner(String titulo, String desc, Color color) =>
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.4)),
+  Widget _banner(String titulo, String desc, Color color) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: color.withOpacity(0.4)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          titulo,
+          style: TextStyle(fontWeight: FontWeight.bold, color: color),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(titulo,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, color: color)),
-            const SizedBox(height: 4),
-            Text(desc,
-                style: TextStyle(
-                    color: color.withOpacity(0.8), fontSize: 13)),
-          ],
+        const SizedBox(height: 4),
+        Text(
+          desc,
+          style: TextStyle(color: color.withOpacity(0.8), fontSize: 13),
         ),
-      );
+      ],
+    ),
+  );
 
-  Widget _seccion(String t) => Text(t,
-      style: const TextStyle(
-          fontWeight: FontWeight.w600, fontSize: 15));
+  Widget _seccion(String t) => Text(
+    t,
+    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+  );
 
   Widget _info(String t) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8)),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.info_outline,
-                color: Colors.blue, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(t,
-                  style: const TextStyle(
-                      color: Colors.blue, fontSize: 13)),
-            ),
-          ],
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.blue[50],
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.info_outline, color: Colors.blue, size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            t,
+            style: const TextStyle(color: Colors.blue, fontSize: 13),
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }

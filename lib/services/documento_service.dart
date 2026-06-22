@@ -34,7 +34,7 @@ class DocumentoService {
     throw Exception('Error al actualizar expediente');
   }
 
-  Future<ExpedienteModel?> obtenerExpedientePorCotizacion(int cotizacionId) async {
+  /*Future<ExpedienteModel?> obtenerExpedientePorCotizacion(int cotizacionId) async {
     final res = await http.get(
       Uri.parse('$base/expedientes/?cotizacion=$cotizacionId'),
       headers: auth.authHeaders,
@@ -46,5 +46,48 @@ class DocumentoService {
       return ExpedienteModel.fromJson(list.first);
     }
     return null;
+  }*/
+   Future<ExpedienteModel?> obtenerExpedientePorCotizacion(int cotizacionId) async {
+    final res = await http.get(
+      Uri.parse('$base/expedientes/?cotizacion=$cotizacionId'),
+      headers: auth.authHeaders,
+    );
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      final list = data is List ? data : (data['results'] ?? []);
+      // Defensa: validar explícitamente que el expediente devuelto
+      // corresponde a ESTA cotización (evita arrastrar datos viejos).
+      final filtrado = (list as List).where((e) {
+        final cot = e['cotizacion'];
+        return cot != null && cot.toString() == cotizacionId.toString();
+      }).toList();
+      if (filtrado.isEmpty) return null;
+      return ExpedienteModel.fromJson(filtrado.first);
+    }
+    return null;
   }
+  
+  /*-------------------------------------------------------------*/
+  Future<void> validarExpediente(int expedienteId, {String observaciones = ''}) async {
+    final res = await http.post(
+      Uri.parse('$base/expedientes/$expedienteId/validar/'),
+      headers: auth.authHeaders,
+      body: jsonEncode({'observaciones': observaciones}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Error al validar expediente (${res.statusCode})');
+    }
+  }
+
+  Future<void> rechazarExpediente(int expedienteId, String motivo) async {
+    final res = await http.post(
+      Uri.parse('$base/expedientes/$expedienteId/rechazar/'),
+      headers: auth.authHeaders,
+      body: jsonEncode({'motivo': motivo}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Error al rechazar expediente (${res.statusCode})');
+    }
+  }
+  /*-----------------------------------------------------*/
 }

@@ -197,4 +197,26 @@ class OrdenMedicaService {
       throw Exception('Error al subir resultado: $body');
     }
   }
+  /*-------------------------------------------------------------*/
+  Future<void> emitirDictamen({
+    required int ordenId,
+    required String conclusion, // 'APTO' | 'APTO_RESERVA' | 'NO_APTO'
+    double impactoPrimaPct = 0,
+    String observaciones = '',
+  }) async {
+    final res = await http.post(
+      Uri.parse('$base/ordenes-medicas/$ordenId/dictamen/'),
+      headers: auth.authHeaders,
+      body: jsonEncode({
+        'conclusion': conclusion,
+        'impacto_prima_pct': impactoPrimaPct,
+        'observaciones': observaciones,
+      }),
+    );
+    if (res.statusCode != 201) {
+      final body = jsonDecode(res.body);
+      throw Exception(body['error'] ?? body.toString());
+    }
+  }
+  /*-------------------------------------------------------------*/
 }

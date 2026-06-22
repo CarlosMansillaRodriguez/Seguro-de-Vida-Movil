@@ -23,7 +23,7 @@ class ExpedienteModel {
     this.observacionesAnalista,
   });
 
-  factory ExpedienteModel.fromJson(Map<String, dynamic> json) {
+  /*factory ExpedienteModel.fromJson(Map<String, dynamic> json) {
     return ExpedienteModel(
       id: json['id'],
       cotizacionId: json['cotizacion'],
@@ -36,7 +36,32 @@ class ExpedienteModel {
       validadoPorAnalista: json['validado_por_analista'] ?? false,
       observacionesAnalista: json['observaciones_analista'],
     );
-  }
+  }*/
+  factory ExpedienteModel.fromJson(Map<String, dynamic> json) {
+  return ExpedienteModel(
+    id: json['id'],
+    cotizacionId: json['cotizacion'],
+
+    ciAnversoUrl:
+        (json['ci_anverso_url'] ?? '').toString().trim(),
+
+    ciReversoUrl:
+        (json['ci_reverso_url'] ?? '').toString().trim(),
+
+    domicilioUrl:
+        (json['domicilio_url'] ?? '').toString().trim(),
+
+    saludFirmadaUrl: json['salud_firmada_url'],
+    respaldoIngresosUrl: json['respaldo_ingresos_url'],
+    contratoFirmadoUrl: json['contrato_firmado_url'],
+
+    validadoPorAnalista:
+        json['validado_por_analista'] ?? false,
+
+    observacionesAnalista:
+        json['observaciones_analista'],
+  );
+}
 
   Map<String, dynamic> toJson() => {
     'cotizacion': cotizacionId,
