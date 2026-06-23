@@ -164,7 +164,7 @@ class AuthService {
 
   bool get isAuthenticated => accessToken != null;
 
-  Future<bool> login(String email, String password) async {
+  /*Future<bool> login(String email, String password) async {
     final response = await http.post(
       Uri.parse("$baseUrl/login/"),
       headers: {"Content-Type": "application/json"},
@@ -190,7 +190,35 @@ class AuthService {
       return true;
     }
     return false;
+  }*/
+  Future<bool> login(String email, String password) async {
+  final response = await http.post(
+    Uri.parse("$baseUrl/login/"),
+    headers: {"Content-Type": "application/json"},
+    body: jsonEncode({"email": email, "password": password}),
+  );
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    accessToken = data["access"];
+    refreshToken = data["refresh"];
+    tenantSlug = data["usuario"]?["tenant_slug"];
+    tenantNombre = data["usuario"]?["tenant_nombre"];
+    userRol = data["usuario"]?["rol"];
+    userId = data["usuario"]?["id"];
+    _esSuperuserCache = null;
+    await _detectarSuperuser();
+
+    // CORRECCIÓN: registrar token DESPUÉS de tener sesión válida,
+    // con pequeño delay para que Firebase esté listo
+    Future.delayed(const Duration(milliseconds: 500), () {
+      NotificationService().registrarTokenEnBackend();
+    });
+
+    return true;
   }
+  return false;
+}
 
   Future<void> _detectarSuperuser() async {
     try {
