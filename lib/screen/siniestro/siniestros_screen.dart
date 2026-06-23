@@ -3,6 +3,7 @@ import '../../services/auth_service.dart';
 import '../../services/siniestro_service.dart';
 import '../../models/siniestro_model.dart';
 import 'reportar_siniestro_screen.dart';
+import '../../services/cu_extras_service.dart';
 
 class SiniestrosScreen extends StatefulWidget {
   final bool soloMios;
@@ -52,19 +53,21 @@ class _SiniestrosScreenState extends State<SiniestrosScreen> {
               DropdownButtonFormField<String>(
                 value: estadoSel,
                 decoration: const InputDecoration(
-                    labelText: 'Nuevo estado',
-                    border: OutlineInputBorder()),
+                  labelText: 'Nuevo estado',
+                  border: OutlineInputBorder(),
+                ),
                 items: const [
                   DropdownMenuItem(
-                      value: 'EN_REVISION',
-                      child: Text('En revisión')),
+                    value: 'EN_REVISION',
+                    child: Text('En revisión'),
+                  ),
+                  DropdownMenuItem(value: 'APROBADO', child: Text('Aprobado')),
                   DropdownMenuItem(
-                      value: 'APROBADO', child: Text('Aprobado')),
-                  DropdownMenuItem(
-                      value: 'RECHAZADO', child: Text('Rechazado')),
+                    value: 'RECHAZADO',
+                    child: Text('Rechazado'),
+                  ),
                 ],
-                onChanged: (v) =>
-                    setSt(() => estadoSel = v ?? 'EN_REVISION'),
+                onChanged: (v) => setSt(() => estadoSel = v ?? 'EN_REVISION'),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -79,8 +82,9 @@ class _SiniestrosScreenState extends State<SiniestrosScreen> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancelar')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(ctx);
@@ -92,16 +96,15 @@ class _SiniestrosScreenState extends State<SiniestrosScreen> {
                   );
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Siniestro actualizado')),
+                      const SnackBar(content: Text('Siniestro actualizado')),
                     );
                     _cargar();
                   }
                 } catch (e) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
                   }
                 }
               },
@@ -112,6 +115,123 @@ class _SiniestrosScreenState extends State<SiniestrosScreen> {
       ),
     );
   }
+
+  /*SP4*/
+  Future<void> _validarCarencia(SiniestroModel s) async {
+    final svc = CuExtrasService(AuthService());
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Validando período de carencia...'),
+          ],
+        ),
+      ),
+    );
+    try {
+      final result = await svc.validarCarencia(s.id);
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      final cumplida = result['carencia_cumplida'] == true;
+      final diasReq = result['dias_requeridos'] ?? 0;
+      final diasTrans = result['dias_transcurridos'] ?? 0;
+      final diasFaltantes = result['dias_faltantes'] ?? 0;
+
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                cumplida ? Icons.check_circle : Icons.cancel,
+                color: cumplida ? Colors.green : Colors.red,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                cumplida ? 'Carencia cumplida' : 'Carencia NO cumplida',
+                style: const TextStyle(fontSize: 15),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _filaDato(
+                'Tipo de siniestro',
+                result['tipo_siniestro']?.toString() ?? '-',
+              ),
+              _filaDato('Días requeridos', '$diasReq días'),
+              _filaDato('Días transcurridos', '$diasTrans días'),
+              if (!cumplida) ...[
+                _filaDato('Días faltantes', '$diasFaltantes días'),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Text(
+                    result['motivo_rechazo']?.toString() ??
+                        'Carencia no cumplida. Siniestro rechazado automáticamente.',
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: const Text(
+                    'El período de carencia ha sido cumplido. El siniestro puede proceder a evaluación.',
+                    style: TextStyle(color: Colors.green, fontSize: 12),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+      _cargar();
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Widget _filaDato(String label, String valor) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      children: [
+        Text(
+          '$label: ',
+          style: const TextStyle(color: Colors.grey, fontSize: 13),
+        ),
+        Text(valor, style: const TextStyle(fontSize: 13)),
+      ],
+    ),
+  );
+  /*SP4*/
 
   Color _colorEstado(String e) {
     switch (e) {
@@ -136,43 +256,45 @@ class _SiniestrosScreenState extends State<SiniestrosScreen> {
       appBar: AppBar(
         title: Text(esCliente ? 'Mis siniestros' : 'Siniestros'),
         actions: [
-          IconButton(
-              icon: const Icon(Icons.refresh), onPressed: _cargar),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _cargar),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _siniestros.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.shield_outlined,
-                          size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      const Text('No hay siniestros registrados',
-                          style: TextStyle(color: Colors.grey)),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.shield_outlined,
+                    size: 64,
+                    color: Colors.grey[400],
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _cargar,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _siniestros.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: 10),
-                    itemBuilder: (_, i) =>
-                        _tarjeta(_siniestros[i]),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No hay siniestros registrados',
+                    style: TextStyle(color: Colors.grey),
                   ),
-                ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _cargar,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: _siniestros.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (_, i) => _tarjeta(_siniestros[i]),
+              ),
+            ),
       floatingActionButton: esCliente
           ? FloatingActionButton.extended(
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (_) =>
-                        const ReportarSiniestroScreen()),
+                  builder: (_) => const ReportarSiniestroScreen(),
+                ),
               ).then((_) => _cargar()),
               icon: const Icon(Icons.add),
               label: const Text('Reportar'),
@@ -186,8 +308,7 @@ class _SiniestrosScreenState extends State<SiniestrosScreen> {
     final esStaff = _auth.esStaff;
 
     return Card(
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -196,43 +317,53 @@ class _SiniestrosScreenState extends State<SiniestrosScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Siniestro #${s.id}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold)),
+                Text(
+                  'Siniestro #${s.id}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
-                    border:
-                        Border.all(color: color.withOpacity(0.4)),
+                    border: Border.all(color: color.withOpacity(0.4)),
                   ),
-                  child: Text(s.estadoDisplay,
-                      style: TextStyle(
-                          color: color,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600)),
+                  child: Text(
+                    s.estadoDisplay,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            Text('Póliza: ${s.polizaNumero}',
-                style: const TextStyle(
-                    fontSize: 13, color: Colors.grey)),
-            Text('Tipo: ${s.tipoDisplay}',
-                style: const TextStyle(fontSize: 13)),
-            Text('Fecha evento: ${s.fechaEvento}',
-                style: const TextStyle(
-                    fontSize: 12, color: Colors.grey)),
+            Text(
+              'Póliza: ${s.polizaNumero}',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            Text(
+              'Tipo: ${s.tipoDisplay}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            Text(
+              'Fecha evento: ${s.fechaEvento}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             if (s.observacionesAgente != null &&
                 s.observacionesAgente!.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text('Agente: ${s.observacionesAgente}',
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.orange)),
+              Text(
+                'Agente: ${s.observacionesAgente}',
+                style: const TextStyle(fontSize: 12, color: Colors.orange),
+              ),
             ],
-            if (esStaff &&
+            /*if (esStaff &&
                 s.estado != 'APROBADO' &&
                 s.estado != 'RECHAZADO') ...[
               const SizedBox(height: 10),
@@ -243,7 +374,37 @@ class _SiniestrosScreenState extends State<SiniestrosScreen> {
                   child: const Text('Revisar'),
                 ),
               ),
+            ],*/
+            /*SP4*/
+            if (esStaff &&
+                s.estado != 'APROBADO' &&
+                s.estado != 'RECHAZADO') ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _validarCarencia(s),
+                      child: const Text(
+                        'Validar carencia',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _revisar(s),
+                      child: const Text(
+                        'Revisar',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
+            /*SP4*/
           ],
         ),
       ),

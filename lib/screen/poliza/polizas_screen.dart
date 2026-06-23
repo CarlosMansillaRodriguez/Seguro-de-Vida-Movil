@@ -3,6 +3,7 @@ import '../../services/auth_service.dart';
 import '../../services/poliza_service.dart';
 import '../../models/poliza_model.dart';
 import 'emitir_poliza_screen.dart';
+import 'valor_rescate_screen.dart';
 
 class PolizasScreen extends StatefulWidget {
   const PolizasScreen({super.key});
@@ -15,6 +16,7 @@ class _PolizasScreenState extends State<PolizasScreen> {
   final _svc = PolizaService(AuthService());
   List<PolizaModel> _polizas = [];
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -22,7 +24,7 @@ class _PolizasScreenState extends State<PolizasScreen> {
     _cargar();
   }
 
-  Future<void> _cargar() async {
+  /*Future<void> _cargar() async {
     try {
       final polizas = await _svc.listarPolizas();
       setState(() {
@@ -31,6 +33,32 @@ class _PolizasScreenState extends State<PolizasScreen> {
       });
     } catch (e) {
       setState(() => _loading = false);
+    }
+  }*/
+  Future<void> _cargar() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final polizas = await _svc.listarPolizas();
+      setState(() {
+        _polizas = polizas;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _error = '$e';
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar pólizas: $e'),
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
     }
   }
 
@@ -56,6 +84,31 @@ class _PolizasScreenState extends State<PolizasScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            color: Colors.red, size: 48),
+                        const SizedBox(height: 12),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.red, fontSize: 13),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _cargar,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Reintentar'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
           : _polizas.isEmpty
               ? _vacio()
               : RefreshIndicator(
@@ -114,7 +167,31 @@ class _PolizasScreenState extends State<PolizasScreen> {
             const SizedBox(height: 6),
             _fila(Icons.attach_money, 'Prima', '\$${p.primaFinalFacturada.toStringAsFixed(2)}'),
             const SizedBox(height: 6),
-            _fila(Icons.people, 'Beneficiarios', '${p.beneficiarios.length} registrado(s)'),
+            //_fila(Icons.people, 'Beneficiarios', '${p.beneficiarios.length} registrado(s)'),
+            /*SP4*/
+            _fila(Icons.people, 'Beneficiarios',
+                '${p.beneficiarios.length} registrado(s)'),
+            if (p.estado == 'ACTIVA') ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ValorRescateScreen(
+                        polizaId: p.id,
+                        numeroPoliza: p.numeroPoliza,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.savings_outlined, size: 16),
+                  label: const Text('Ver valor de rescate',
+                      style: TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+            /*SP4*/
           ],
         ),
       ),

@@ -20,7 +20,7 @@ class PolizaService {
       final list = data is List ? data : (data['results'] ?? []);
       return (list as List).map((j) => PolizaModel.fromJson(j)).toList();
     }
-    throw Exception('Error al listar pólizas');
+    throw Exception('Error al listar pólizas (${res.statusCode}): ${res.body}');
   }
 
   Future<PolizaModel> emitirPoliza({

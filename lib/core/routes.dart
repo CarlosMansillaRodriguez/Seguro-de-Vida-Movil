@@ -66,6 +66,8 @@ import '../screen/pago/historial_pagos_screen.dart';
 import '../screen/siniestro/siniestros_screen.dart';
 import '../screen/siniestro/indemnizaciones_screen.dart';
 import '../screen/documentos/mis_documentos_screen.dart';
+import '../screen/poliza/valor_rescate_screen.dart';
+import '../screen/cotizacion/recomendacion_ia_screen.dart';
 
 class AppRoutes {
   static final routes = <String, WidgetBuilder>{
@@ -107,5 +109,12 @@ class AppRoutes {
     // ── Sistema (superuser global) ────────────────────────────────────────
     '/sistema': (context) => const SistemaDashboardScreen(),
     '/sistema/tenants': (context) => const TenantsListaScreen(),
+
+    //------------------------
+    '/recomendacion-ia': (context) => const RecomendacionIAScreen(),
+    '/poliza/rescate': (context) => const ValorRescateScreen(
+          polizaId: 0,
+          numeroPoliza: '',
+        ),
   };
 }
